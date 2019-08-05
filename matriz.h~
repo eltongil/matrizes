@@ -1,0 +1,83 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+struct matriz
+{
+	double **M;
+	int col;
+	int lin;
+};
+
+void inserir_matriz(struct matriz *A)
+{
+	printf("Inserir a quantidade de linhas: ");
+	scanf("%d",&A->lin);
+	printf("Inserir a quantidade de colunas: ");
+	scanf("%d",&A->col);
+	A->M = (double**)malloc(A->lin*sizeof(double));
+	for(int i=0;i<A->lin;i++)
+	{
+		A->M[i]=(double*)malloc(A->col*sizeof(double));
+		for(int j=0;j<A->col;j++)
+		{
+			printf("Elemento:[%d][%d]: ",i+1,j+1);
+			scanf("%lf",&A->M[i][j]);
+		}
+	}
+}
+
+void exibir_matriz(struct matriz A)
+{
+	for(int i=0;i<A.lin;i++)
+	{
+		printf("\n");
+		for(int j=0;j<A.col;j++)
+		{
+			printf("%0.2lf\t",A.M[i][j]);
+		}
+	}
+}
+
+double determinante(struct matriz A)
+{
+	double det=0;
+	if(A.lin==A.col)
+	{
+		if (A.lin==2)
+		{
+			det =  A.M[0][0]*A.M[1][1]-A.M[0][1]*A.M[1][0];
+		}
+		else
+		{
+			for(int j=0;j<A.col;j++)
+			{
+				det+=A.M[0][j]*determinante(submatriz(A,1,j));
+			}
+		}
+	}
+	else 
+	{
+		printf("Não é matriz quadrada.");
+	}	
+	return det;
+}
+
+struct matriz submatriz(struct matriz A,int l, int c)
+{
+	struct matriz r;
+	r.lin = A.lin-1;
+	r.col = A.col-1;
+	--l;
+	--c;
+	int il=0,ic=0;
+	for(int i=0;i<A.lin;i++)
+	{
+		for(int j=0;j<A.col;j++) 
+		{
+			if(i!=l && j!=c)
+			{
+				r.M[il++][ic++];
+			}	
+		}
+	}
+}
