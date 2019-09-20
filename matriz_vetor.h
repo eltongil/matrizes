@@ -6,9 +6,10 @@
 //Definição da estrutura de uma matriz com alocação dinâmica.
 typedef struct Matriz
 {
-	double **M;
+	double *M;
 	int col;
 	int lin;
+	int tam;
 }matriz;
 
 //Assinaturas das funções.
@@ -24,7 +25,7 @@ void transpor(matriz *A);
 void alocar(matriz *A);
 matriz identidade(int ordem);
 int igual(matriz a, matriz b);
-void trianguloPascal(matriz *tri,int ordem);
+matriz trianguloPascal(int ordem);
 void copiar(matriz original, matriz *copia);
 matriz aleatoria(int lin,int col,int min,int max);
 void limpar(matriz *a);
@@ -36,13 +37,14 @@ void inserir_matriz(matriz *A)
 	scanf("%d",&A->lin);
 	printf("Inserir a quantidade de colunas: ");
 	scanf("%d",&A->col);
+	A->tam = A->lin*A->col;
 	alocar(A);//Como alocação dinâmica será muito recorrente, fiz uma subrotina específica.
-	for(int i=1;i<A->lin;i++)
+	for(int i=0;i<A->lin;i++)
 	{
-		for(int j=1;j<A->col;j++)
+		for(int j=0;j<A->col;j++)
 		{
-			printf("Elemento:[%d][%d]: ",i+2,j+1);
-			scanf("%lf",&A->M[i][j]);
+			printf("Elemento:[%d][%d]: ",i+1,j+1);
+			scanf("%lf",&A->M[i*A->col+j]);
 		}
 	}
 }
@@ -50,17 +52,14 @@ void inserir_matriz(matriz *A)
 //Exibição padrão para uma matriz retangular
 void exibir_matriz(matriz A)
 {
-	for(int i=0;i<A.lin;i++)
+	printf("\n|");
+	for(int i=0;i<A.tam;i++)
 	{
-		printf("\n|");//Espaço superior
-		for(int j=0;j<A.col;j++)
-		{			
-			printf("%g",A.M[i][j]);
-			if(j!=A.col-1) printf("\t");//Espaço lateral se não for o último elemento
-		}
-		printf("|");//barra fim de linha
+		if(i%A.col) printf("\t");
+		else if(i>0)	printf("|\n|");//Espaço superior
+		printf("%g",A.M[i]);
 	}
-	printf("\n");//espaço inferior
+	printf("|\n");//espaço inferior
 }
 
 //Determinante por submatriz, por laplace
@@ -71,20 +70,17 @@ double determinante(matriz A)
 	{
 		if (A.lin==2)
 		{
-			det =  A.M[0][0]*A.M[1][1]-A.M[0][1]*A.M[1][0];//Determinante 2x2
+			det =  A.M[0]*A.M[3]-A.M[1]*A.M[2];//Determinante 2x2
 		}
 		else//3x3 ou maior
 		{
-			//Essa função é recursiva, cada matriz alocada é liberada após seu uso total.
+			//Essa função é recursiva, cada
+			//matriz alocada é liberada após seu uso total.
 			for(int j=0;j<A.col;j++)
-			{
-				if(j%2)det-=A.M[0][j]*sub_det(submatriz(A,0,j));//Parte do determinante se ímpar
-				else det += A.M[0][j]*sub_det(submatriz(A,0,j));// se par
-			}
+				det += A.M[j]*sub_det(submatriz(A,0,j));
 		}
 	}
-	else
-		printf("Não é matriz quadrada.");	
+	else	printf("Não é matriz quadrada.");	
 	return det;
 }
 
@@ -99,28 +95,35 @@ matriz submatriz(matriz A,int l, int c)
 	else			r.lin = A.lin;
 	if(c>=0 && c<A.col)	r.col = A.col-1;
 	else 			r.col = A.col;
-	r.M = (double **)malloc(r.lin*sizeof(double));
-	int ri=l+1,rj;
-	for(int i=0;i<r.lin;i++)
+	r.M = (double *)malloc(r.col*r.lin*sizeof(double));
+	int ri=0,rj=0,i,j;
+	i = l>=A.lin-1?0:l+1;//Se for a última linha ou maior, começa do 0
+	j = c>=A.col-1?0:c+1;//o mesmo para as colunas
+	do
 	{
-		r.M[i] =(double *)malloc(r.col*sizeof(double));
-		if(ri>=l)ri=0;
-		rj = c+1;
-		for(int j=0;j<r.col;j++) 
+
+		r.M[ri*r.col+rj]=A.M[i*A.col+j];
+		rj++;
+		j++;
+		if(rj==r.col && ri<r.lin) 
 		{
-			if(rj>=A.col) rj=0;
-			r.M[i][j]=A.M[ri][rj];
-			rj++;	
+			rj=0;
+			ri++;
 		}
-		ri++;
-	}
+		if(j==A.col)	j=0;
+		if(j==c) 
+		{
+			j++;
+			i++;
+		}
+	}while(rj<r.col);
 	return r;
 }
 
 double sub_det(matriz A)
 {
 	double r = determinante(A);
-	limpar(&A);
+	free(A.M);
 	return r;
 }
 
@@ -128,33 +131,26 @@ void tamanho(matriz A){	printf("\n%d por %d\n",A.lin,A.col);}
 
 matriz produto(matriz A, matriz B)
 {
-	matriz r;
 	if (A.col==B.lin)
 	{
+		matriz r;
 		r.col = B.col;
 		r.lin = A.lin;
-		r.M = malloc(r.lin*sizeof(double));
+		r.tam = r.col*r.lin;
+		r.M = (double*)calloc(r.tam,sizeof(double));
 		for (int c=0;c<A.lin;c++)
 		{
-			r.M[c]=malloc(r.col*sizeof(double));
 			for (int l=0;l<B.col;l++)
 			{
-				r.M[c][l]=0;
 				for (int k=0;k<A.col;k++)
 				{
-					r.M[c][l]+=A.M[c][k]*B.M[k][l];
+					r.M[c*r.col+l]+=A.M[c*A.col+k]*B.M[k*B.col+l];
 				}
 			}
 		}
+		return r;
 	}
-	else
-	{
-		r.col=1;
-		r.lin=1;
-		alocar(&r);
-		r.M[0][0]=0;
-	}
-	return r;
+	else	printf("Dimensões incompatíveis para operar produto.");
 }
 
 matriz transposta(matriz A)
@@ -167,7 +163,7 @@ matriz transposta(matriz A)
 	{
 		for(int j=0;j<A.col;j++)
 		{
-			r.M[i][j]=A.M[j][i];
+			r.M[j*A.lin+i]=A.M[i*A.col+j];
 		}
 	}
 	return r;
@@ -175,16 +171,16 @@ matriz transposta(matriz A)
 
 void transpor(matriz *A)
 {
-	double temp;
-	for (int i=1;i<A->lin;i++)
+	int aux,i,j;
+	for(i=0;i<A->lin;i++)
 	{
-		for (int j=i;j<A->col;j++)
+		for(j=i+1;j<A->col;j++)
 		{
-			temp = A->M[i][j];
-			A->M[i][j] = A->M[j][i];
-			A->M[j][i] = temp;
+			aux = A->M[i*A->col+j];
+			A->M[i*A->col+j] = A->M[j*A->col+i];
+			A->M[j*A->col+i] = aux;
 		}
-	}
+	}	
 }
 
 matriz transpor_produto(matriz A,matriz B)
@@ -195,17 +191,17 @@ matriz transpor_produto(matriz A,matriz B)
 		t = transposta(B);
 		r.col = B.col;
 		r.lin = A.lin;
-		r.M = (double **)calloc(r.lin,sizeof(double));
+		r.tam=r.lin*r.col;
+		r.M = (double *)calloc(r.tam,sizeof(double));
 		for (int c=0;c<A.lin;c++)
 		{
-			r.M[c]=(double *)calloc(r.col,sizeof(double));
 			for (int l=0;l<t.col;l++)
 			{
 				for (int k=0;k<A.col;k++)
-					r.M[c][l]+=A.M[c][k]*t.M[l][k];
+					r.M[c*r.col+l]+=A.M[c*A.col+k]*t.M[l*t.col+k];
 			}
 		}
-		limpar(&t);
+		free(t.M);
 		return r;
 	}
 	else
@@ -217,9 +213,8 @@ matriz transpor_produto(matriz A,matriz B)
 
 void alocar(matriz *A)
 {
-	A->M = (double **)calloc(A->lin,sizeof(double*));
-	for (int i=0;i<A->lin;i++)
-		A->M[i] = (double *)calloc(A->col,(sizeof(double)));
+	A->tam = A->lin*A->col;
+	A->M = (double *)calloc(A->tam,sizeof(double*));
 }
 
 matriz identidade(int ordem)
@@ -228,8 +223,8 @@ matriz identidade(int ordem)
 	r.lin=ordem;
 	r.col=ordem;
 	alocar(&r);
-	for (int i=0;i<ordem;i++)
-		r.M[i][i]=1;
+	for (int i=0;i<r.tam;i++)
+		r.M[i*(r.col+1)]=1;
 	return r;
 }
 
@@ -238,16 +233,13 @@ int igual(matriz a, matriz b)
 	int r=1;
 	if(a.lin==b.lin && a.col==b.col)
 	{
-		for (int i=0;i<a.lin;i++)
+		for (int i=0;i<a.tam;i++)
 		{
 			if (!r) break;
-			for(int j=0;j<a.col;j++)
+			if(a.M[i]!=b.M[i])
 			{
-				if(a.M[i][j]!=b.M[i][j])
-				{
-					r=0;
-					break;
-				}
+				r=0;
+				break;
 			}
 		}
 	}
@@ -258,21 +250,25 @@ int igual(matriz a, matriz b)
 	return r;
 }
 
-void trianguloPascal(matriz *tri,int ordem)
-{
-	tri->lin = ordem+1;
-	tri->col = tri->lin;
-	tri->M = malloc(tri->lin*sizeof(double));
-	for(int i=0;i<tri->lin;i++)
+matriz trianguloPascal(int ordem)
+{	
+	matriz tri;
+	tri.tam=0;
+	for (int i=1;i<=ordem;i++)
+		tri.tam+=i;
+	tri.M = (double *)calloc(tri.tam,sizeof(double));
+	int colunas;
+	int pos=0;
+	for(int i=0;i<tri.tam;i++)
 	{
+		colunas=i+1;
 		printf("\n");
-		tri->M[i] = malloc((i)*sizeof(double));
-		for(int j=0;j<=i;j++)
+		for(int j=0;j<colunas;j++)
 		{
-			if (j==0 || j == i) tri->M[i][j]=1;
-			else if (j==1 || j == i-1) tri->M[i][j]=i;
-			else tri->M[i][j] = tri->M[i-1][j]+tri->M[i-1][j-1];
-			printf("%g\t",tri->M[i][j]);
+			if (j==0 || j == i) tri.M[pos++]=1;
+			else if (j==1 || j == i-1) tri.M[pos++]=i;
+			else tri.M[pos++] = tri.M[pos-i]+tri.M[pos-i-1];
+			printf("%g\t",tri.M[pos-1]);
 		}
 	}
 	printf("\n");
@@ -282,12 +278,9 @@ void copiar(matriz original,matriz *copia)
 {
 	copia->lin = original.lin;
 	copia->col = original.col;
-	alocar(copia);
-	for (int i=0;i<original.lin;i++)
-	{
-		for(int j=0;j<original.col;j++)
-			copia->M[i][j]=original.M[i][j];
-	}	
+	copia->tam = original.tam;
+	copia->M = (double *)malloc(copia->tam*sizeof(double));
+	for (int i=0;i<original.tam;i++) copia->M[i]=original.M[i];	
 }
 
 matriz aleatoria(int lin, int col,int min,int max)
@@ -295,19 +288,10 @@ matriz aleatoria(int lin, int col,int min,int max)
 	matriz R;
 	R.lin = lin;
 	R.col = col;
+	R.tam = lin*col;
 	max-=min-1;
-	R.M = (double **)malloc(lin*sizeof(double));
-	for(int i=0;i<lin;i++)
-	{
-		R.M[i] = (double *)malloc(col*sizeof(double));
-		for(int j=0;j<col;j++)
-			R.M[i][j] = rand()%max+min;
-	}
+	R.M = (double *)malloc(R.tam*sizeof(double));
+	for(int i=0;i<R.tam;i++)R.M[i] = rand()%max+min;
 	return R;
 }
 
-void limpar(matriz *a)
-{
-	while (a->lin>0) free(a->M[--a->lin]);
-	free(a->M);
-}
